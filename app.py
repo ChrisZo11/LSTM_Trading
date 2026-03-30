@@ -20,13 +20,6 @@ st.markdown("Monitor AI metrics, view live charts, execute Backtests, and trigge
 # Sidebar Controls
 st.sidebar.header("Navigation")
 selected_symbol = st.sidebar.selectbox("Select Market", SYMBOLS)
-execute_action = st.sidebar.button("▶️ Execute Live Pipeline on ALL symbols")
-
-if execute_action:
-    # Trigger the headless pipeline script internally
-    with st.spinner("Executing Live Pipeline. Check terminal for Alpaca receipts..."):
-        run_pipeline()
-    st.sidebar.success("Pipeline Run Completed.")
 
 
 # --------------------------------------------------------------------
@@ -65,6 +58,15 @@ else:
         st.subheader("Model Status")
         if model_exists:
             st.success("✅ PyTorch Weights Found")
+            
+            # Place button here in main view
+            st.markdown("---")
+            execute_action = st.button("▶️ Execute Live Pipeline on ALL symbols", use_container_width=True)
+            if execute_action:
+                with st.spinner("Executing Live Pipeline. Check terminal for Alpaca receipts..."):
+                    run_pipeline()
+                st.success("Pipeline Run Completed.")
+                
         else:
             st.warning("⚠️ No PyTorch Weight Model exists. Please train it via the console.")
             
