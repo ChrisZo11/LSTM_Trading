@@ -7,6 +7,7 @@ import os
 from config import SYMBOLS, DATA_INTERVAL, HISTORY_PERIOD, MODEL_DIR, SEQUENCE_LENGTH
 from trading_bot.data.market import fetch_ohlcv
 from trading_bot.features.engineer import compute_features, create_sequences
+from trading_bot.models.trainer import train_model
 from trading_bot.models.predictor import predict_signal
 from trading_bot.signals.news_sentiment import fetch_headlines, analyze_sentiment, override_signal
 from trading_bot.backtest.runner import run_backtest
@@ -33,15 +34,15 @@ def load_and_process(symbol):
         return None, None, None, None, "No Data found from Yahoo Finance"
         
     features = compute_features(raw)
-    X, _ = create_sequences(features, sequence_length=SEQUENCE_LENGTH)
+    X, y = create_sequences(features, sequence_length=SEQUENCE_LENGTH)
     
     if len(X) == 0:
         return raw, features, None, None, "Not enough rows to build LSTM Sequence"
         
-    return raw, features, X, None, None
+    return raw, features, X, y, None
 
 
-raw_df, features_df, X_seq, _, err = load_and_process(selected_symbol)
+raw_df, features_df, X_seq, y_seq, err = load_and_process(selected_symbol)
 
 if err:
     st.error(err)
@@ -68,7 +69,12 @@ else:
                 st.success("Pipeline Run Completed.")
                 
         else:
-            st.warning("⚠️ No PyTorch Weight Model exists. Please train it via the console.")
+            st.warning("⚠️ No PyTorch Weight Model exists for this symbol today.")
+            if st.button("🧠 Train PyTorch Model Now", use_container_width=True):
+                with st.spinner(f"Training LSTM Model for {selected_symbol}. This takes ~10 seconds..."):
+                    train_model(X_seq, y_seq, symbol=selected_symbol, model_path=model_path)
+                st.success("Training Complete! The page will now refresh.")
+                st.rerun()
             
     # --------------------------------------------------------------------
     # Live Predictions & News Sentiment
