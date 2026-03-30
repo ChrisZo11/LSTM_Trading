@@ -27,6 +27,15 @@ class AlpacaExecutor:
             print(f"[Alpaca] Failed to fetch account: {e}")
             return 10000.0 # Return placeholder for graceful fallback
 
+    def get_position_qty(self, symbol: str) -> float:
+        """Check how many shares of a symbol are currently owned."""
+        try:
+            position = self.api.get_open_position(symbol)
+            return float(position.qty)
+        except Exception:
+            # We don't own the position
+            return 0.0
+
     def place_order(self, symbol: str, signal: str, qty: float) -> None:
         """Submit a MarketOrderRequest."""
         if signal == "HOLD" or qty <= 0.0001:

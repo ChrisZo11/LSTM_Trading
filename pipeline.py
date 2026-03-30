@@ -80,10 +80,17 @@ def run_pipeline(retrain: bool = False):
         # 8. Filter via Risk and Submit
         latest_price = float(features["close"].iloc[-1])
         quantity = risk.position_size(price=latest_price)
+        current_owned = executor.get_position_qty(symbol)
         
-        if final_signal != "HOLD" and quantity > 0.0001:
-             print(f"[Pipeline] 💸 Requesting: {final_signal} quantity `{quantity}` of {symbol} at estimated market price ${latest_price:.2f}")
-             executor.place_order(symbol=symbol, signal=final_signal, qty=quantity)
+        if final_signal == "SELL" and current_owned <= 0.0001:
+            print(f"[Pipeline] ⏭️ Skipping {symbol}: Signal is SELL, but no shares currently owned (Shorting aborted).")
+        elif final_signal != "HOLD" and quantity > 0.0001:
+            # If selling, sell EVERYTHING we currently own so we aren't short-selling the excess fraction
+            if final_signal == "SELL":
+                quantity = current_owned
+                
+            print(f"[Pipeline] 💸 Requesting: {final_signal} quantity `{quantity}` of {symbol} at estimated market price ${latest_price:.2f}")
+            executor.place_order(symbol=symbol, signal=final_signal, qty=quantity)
         else:
             reason = "Signal is HOLD." if final_signal == "HOLD" else "Risk Manager permitted no shares."
             print(f"[Pipeline] ⏭️ Skipping {symbol}: {reason}")
