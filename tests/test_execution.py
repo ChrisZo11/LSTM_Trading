@@ -6,18 +6,19 @@ def test_position_size_math():
     price_per_share = 100.0
     
     # 10% of $10_000 is $1000 limit. 
-    # $1000 / $100 price is 10 valid shares
+    # $1000 / $100 price is 10.0 valid shares
     rm = RiskManager(portfolio_value=portfolio, max_position_pct=0.10)
     qty = rm.position_size(price=price_per_share)
     
-    assert qty == 10
+    assert qty == 10.0
 
 def test_position_floors_at_zero():
     # Attempting to buy $500 stock with $10 in portfolio
     rm = RiskManager(portfolio_value=10.0, max_position_pct=0.10)
     qty = rm.position_size(price=500.0)
     
-    assert qty == 0
+    # 1.00 dollars / 500 = 0.002
+    assert qty == 0.002
 
 def test_daily_loss_limit_halts_algorithm():
     # Down $500 total before freezing (5%)

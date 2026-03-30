@@ -27,10 +27,10 @@ class AlpacaExecutor:
             print(f"[Alpaca] Failed to fetch account: {e}")
             return 10000.0 # Return placeholder for graceful fallback
 
-    def place_order(self, symbol: str, signal: str, qty: int) -> None:
+    def place_order(self, symbol: str, signal: str, qty: float) -> None:
         """Submit a MarketOrderRequest."""
-        if signal == "HOLD" or qty <= 0:
-            print(f"[Alpaca] {symbol}: HOLD or Zero Quantity — Trade Cancelled.")
+        if signal == "HOLD" or qty <= 0.0001:
+            print(f"[Alpaca] {symbol}: HOLD or Quantity Too Low — Trade Cancelled.")
             return
 
         side = OrderSide.BUY if signal == "BUY" else OrderSide.SELL

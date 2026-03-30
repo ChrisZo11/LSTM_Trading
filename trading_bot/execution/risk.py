@@ -17,12 +17,12 @@ class RiskManager:
         self.daily_loss_limit = portfolio_value * daily_loss_limit_pct
         self._daily_loss_so_far = 0.0
 
-    def position_size(self, price: float) -> int:
+    def position_size(self, price: float) -> float:
         """
-        Calculate the number of whole shares affordable within the max_position_pct parameter.
+        Calculate the fractional number of shares affordable.
         """
         max_dollars = self.portfolio_value * self.max_position_pct
-        return int(max_dollars // price)
+        return round(float(max_dollars / price), 4)
 
     def record_loss(self, amount: float) -> None:
         """

@@ -81,7 +81,7 @@ def run_pipeline(retrain: bool = False):
         latest_price = float(features["close"].iloc[-1])
         quantity = risk.position_size(price=latest_price)
         
-        if final_signal != "HOLD" and quantity > 0:
+        if final_signal != "HOLD" and quantity > 0.0001:
              print(f"[Pipeline] 💸 Requesting: {final_signal} quantity `{quantity}` of {symbol} at estimated market price ${latest_price:.2f}")
              executor.place_order(symbol=symbol, signal=final_signal, qty=quantity)
         else:
