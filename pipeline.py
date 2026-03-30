@@ -69,13 +69,12 @@ def run_pipeline(retrain: bool = False):
         print(f"[Pipeline] 🎯 RAW ML Signal: {ml_signal} (Confidence: {confidence:.2%})")
 
         # 7. Apply NLP filtering layer to detect catastrophic headlines
-        headlines = fetch_headlines(symbol)
-        final_signal = override_signal(ml_signal, headlines)
+        # (DISABLED BY USER REQUEST TO PRESERVE QUOTA BURN)
+        # headlines = fetch_headlines(symbol)
+        # final_signal = override_signal(ml_signal, headlines)
         
-        if final_signal != ml_signal:
-             print(f"[Pipeline] ⚖️ OVERRIDE Applied: {ml_signal} -> {final_signal}. Headline sentiment strongly conflicted with AI.")
-        else:
-             print(f"[Pipeline] ⚖️ Signal Confirm: Headlines did not break parameters.")
+        final_signal = ml_signal
+        print(f"[Pipeline] ⚖️ NewsAPI Disabled: Trusting AI Signal completely.")
 
         # 8. Filter via Risk and Submit
         latest_price = float(features["close"].iloc[-1])
@@ -105,11 +104,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     if args.loop:
-        print("Infinite Loop Triggered. The bot will automatically run every 24 Hours.")
+        print("Infinite Loop Triggered. The bot will automatically run every 60 Minutes.")
         while True:
             run_pipeline(retrain=args.retrain)
-            print("[Loop] Sleeping until tomorrow...")
-            # 86400 seconds = 24 Hours
-            time.sleep(86400) 
+            print("[Loop] Sleeping until the next hour...")
+            # 3600 seconds = 1 Hour
+            time.sleep(3600) 
     else:
         run_pipeline(retrain=args.retrain)

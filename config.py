@@ -22,8 +22,8 @@ SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN"]
 # ──────────────────────────────────────────────
 # Data settings
 # ──────────────────────────────────────────────
-DATA_INTERVAL = "1d"           # candle interval: '1d', '1h', '15m'
-HISTORY_PERIOD = "2y"          # how far back to fetch
+DATA_INTERVAL = "1h"           # 1-hour candlesticks instead of Daily
+HISTORY_PERIOD = "60d"         # Yahoo Finance limits how much intraday data you can pullback to fetch
 PREDICTION_HORIZON = 1         # predict N bars ahead
 
 # ──────────────────────────────────────────────

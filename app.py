@@ -84,20 +84,13 @@ else:
         live_frame = X_seq[-1:] 
         ml_signal, confidence = predict_signal(live_frame, symbol=selected_symbol, model_path=model_path)
         
-        headlines = fetch_headlines(selected_symbol)
-        sentiment_score = analyze_sentiment(headlines)
-        final_signal = override_signal(ml_signal, headlines)
-        
         with col2:
             st.subheader("Deep Learning NLP Output")
             st.metric(label="PyTorch Target Bias:", value=f"{ml_signal} ({confidence:.1%})")
             
         with col3:
             st.subheader("News Sentiment Rating")
-            st.metric(label="Language Processing Overlay", value=f"{sentiment_score:+.2f}", delta=f"Final -> {final_signal}")
-            with st.expander("Recent Headlines Plucked"):
-                for hd in headlines:
-                    st.write(f"- {hd}")
+            st.info("NewsAPI logic has been disabled by user request to preserve free quota limits.")
     else:
         st.info("Train the model via `python run_backtest.py` to unlock PyTorch Intelligence tracking.")
 
