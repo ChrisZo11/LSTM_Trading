@@ -4,6 +4,7 @@ Fetches data -> Engineers features -> AI LSTM Predicts -> NewsAPI Overrides -> A
 """
 import os
 import argparse
+import time
 from config import SYMBOLS, DATA_INTERVAL, HISTORY_PERIOD, MODEL_DIR, SEQUENCE_LENGTH
 from trading_bot.data.market import fetch_ohlcv
 from trading_bot.features.engineer import compute_features, create_sequences
@@ -93,6 +94,15 @@ def run_pipeline(retrain: bool = False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="LSTM Trading Bot Run Loop")
     parser.add_argument("--retrain", action="store_true", help="Force retraining of LSTM models on startup")
+    parser.add_argument("--loop", action="store_true", help="Run automatically in an endless loop waiting for the next day.")
     args = parser.parse_args()
     
-    run_pipeline(retrain=args.retrain)
+    if args.loop:
+        print("Infinite Loop Triggered. The bot will automatically run every 24 Hours.")
+        while True:
+            run_pipeline(retrain=args.retrain)
+            print("[Loop] Sleeping until tomorrow...")
+            # 86400 seconds = 24 Hours
+            time.sleep(86400) 
+    else:
+        run_pipeline(retrain=args.retrain)
