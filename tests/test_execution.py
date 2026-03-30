@@ -14,11 +14,17 @@ def test_position_size_math():
 
 def test_position_floors_at_zero():
     # Attempting to buy $500 stock with $10 in portfolio
-    rm = RiskManager(portfolio_value=10.0, max_position_pct=0.10)
+    # 1.00 dollars / 500 = 0.002
+    # Because $1.00 * 0.002 = $1.00 minimum limit met? No, the math 500 * 0.002 = 1.0, wait. 
+    # Attempting to buy $500 stock with $10 portfolio means max risk is $1.00.
+    # $1.00 / 500 is 0.002. Then qty * price is 0.002 * 500 = 1.0. This *exactly* meets the 1.0 boundary.
+    # So wait, 500 stock with $9 in portfolio means max risk is 0.90 dollars.
+    # Let me change portfolio to 9.0 to explicitly fail the $1 minimum.
+    rm = RiskManager(portfolio_value=9.0, max_position_pct=0.10)
     qty = rm.position_size(price=500.0)
     
-    # 1.00 dollars / 500 = 0.002
-    assert qty == 0.002
+    # 0.90 dollars / 500 = 0.0018 shares. 500 * 0.0018 = $0.90, under $1 threshold.
+    assert qty == 0.0
 
 def test_daily_loss_limit_halts_algorithm():
     # Down $500 total before freezing (5%)

@@ -22,7 +22,12 @@ class RiskManager:
         Calculate the fractional number of shares affordable.
         """
         max_dollars = self.portfolio_value * self.max_position_pct
-        return round(float(max_dollars / price), 4)
+        qty = round(float(max_dollars / price), 4)
+
+        if qty * price < 1.00:
+            return 0.0
+            
+        return qty
 
     def record_loss(self, amount: float) -> None:
         """

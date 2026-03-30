@@ -34,65 +34,103 @@ def run_pipeline(retrain: bool = False):
         print("          Algorithm refuses to trade further today.")
         return
 
-    # Loop Over All Stocks in Config
+    # --- PHASE 1: GLOBAL EVALUATION ---
+    print("\n[Pipeline] ━━━━━━━━ Phase 1: Global Market Evaluation ━━━━━━━━")
+    predictions = []
+    
     for symbol in SYMBOLS:
-        print(f"\n[Pipeline] ━━━━━━━━ Processing {symbol} ━━━━━━━━")
+        print(f"[Phase 1] Analyzing {symbol}...")
         model_path = os.path.join(MODEL_DIR, f"lstm_{symbol.replace('/', '_')}.pth")
 
-        # 2. Extract Data
         raw = fetch_ohlcv(symbol, period=HISTORY_PERIOD, interval=DATA_INTERVAL)
         if raw.empty:
-            print(f"[Pipeline] ⚠️ No data pulled for {symbol}. Moving to next ticker.")
+            print(f"          ⚠️ No data pulled. Skipping.")
             continue
 
-        # 3. Create Technical Time Series Features
         features = compute_features(raw)
-
-        # 4. Generate sequences for PyTorch specifically
         X, y = create_sequences(features, sequence_length=SEQUENCE_LENGTH)
         
         if len(X) == 0:
-            print(f"[Pipeline] ⚠️ Features DataFrame too small to create {SEQUENCE_LENGTH} length sequence for LSTM.")
+            print(f"          ⚠️ Features too small for LSTM. Skipping.")
             continue
 
-        # 5. Train logic (Runs if told directly via args, or if file doesn't exist)
         if retrain or not os.path.exists(model_path):
-            print(f"[Pipeline] 🧠 No existing model found. Re-training LSTM Weights for {symbol}...")
+            print(f"          🧠 No existing model found. Re-training LSTM Weights...")
             train_model(X, y, symbol=symbol, model_path=model_path)
             
-        print(f"[Pipeline] 🤖 Model successfully loaded.")
-
-        # 6. Take the final frame from the Time Series and apply the loaded LSTM PyTorch model
-        # We index the very last known period in our Dataframe:
-        live_sequence = X[-1:] # Shape becomes (1, sequence_length, features)
+        # Predict
+        live_sequence = X[-1:] 
         ml_signal, confidence = predict_signal(live_sequence, symbol=symbol, model_path=model_path)
-        print(f"[Pipeline] 🎯 RAW ML Signal: {ml_signal} (Confidence: {confidence:.2%})")
-
-        # 7. Apply NLP filtering layer to detect catastrophic headlines
-        # (DISABLED BY USER REQUEST TO PRESERVE QUOTA BURN)
-        # headlines = fetch_headlines(symbol)
-        # final_signal = override_signal(ml_signal, headlines)
         
-        final_signal = ml_signal
-        print(f"[Pipeline] ⚖️ NewsAPI Disabled: Trusting AI Signal completely.")
-
-        # 8. Filter via Risk and Submit
+        # Pull Execution Data
         latest_price = float(features["close"].iloc[-1])
-        quantity = risk.position_size(price=latest_price)
         current_owned = executor.get_position_qty(symbol)
         
-        if final_signal == "SELL" and current_owned <= 0.0001:
-            print(f"[Pipeline] ⏭️ Skipping {symbol}: Signal is SELL, but no shares currently owned (Shorting aborted).")
-        elif final_signal != "HOLD" and quantity > 0.0001:
-            # If selling, sell EVERYTHING we currently own so we aren't short-selling the excess fraction
-            if final_signal == "SELL":
-                quantity = current_owned
+        predictions.append({
+            "symbol": symbol,
+            "signal": ml_signal,
+            "confidence": confidence,
+            "price": latest_price,
+            "owned": current_owned
+        })
+        print(f"          -> Signal: {ml_signal} | Confidence: {confidence:.2%} | Owned: {current_owned}")
+
+    # --- PHASE 2: RANKED CAPITAL ALLOCATION ---
+    print("\n[Pipeline] ━━━━━━━━ Phase 2: Portfolio Rebalancing & Execution ━━━━━━━━")
+    
+    if not predictions:
+        print("[Pipeline] ✅ No valid predictions generated in Phase 1. Complete.")
+        return
+        
+    # Sort predictions by confidence descending
+    predictions.sort(key=lambda x: x["confidence"], reverse=True)
+    top_asset = predictions[0]
+    
+    print(f"🏆 Top Ranked Strategy: {top_asset['symbol']} with {top_asset['confidence']:.2%} [{top_asset['signal']}]")
+
+    # Rebalance: If the Top Asset is a BUY, forcefully liquidate any weak assets we own
+    if "BUY" in top_asset["signal"]:
+        for asset in predictions:
+            if asset["symbol"] != top_asset["symbol"] and asset["owned"] > 0.0001:
+                print(f"          💸 Rebalance: Liquidating {asset['owned']} shares of {asset['symbol']} to rotate capital...")
+                executor.place_order(symbol=asset["symbol"], signal="SELL", qty=asset["owned"])
                 
-            print(f"[Pipeline] 💸 Requesting: {final_signal} quantity `{quantity}` of {symbol} at estimated market price ${latest_price:.2f}")
-            executor.place_order(symbol=symbol, signal=final_signal, qty=quantity)
+                # Recalculate portfolio size so the Top Asset can buy with the new liquidated cash
+                portfolio_value = executor.get_portfolio_value()
+                risk = RiskManager(portfolio_value=portfolio_value)
+
+    # Standard Execution Loop
+    for asset in predictions:
+        symbol = asset["symbol"]
+        signal = asset["signal"]
+        qty = asset["owned"]
+        price = asset["price"]
+        
+        # How many CAN we buy via the 10% Risk rule?
+        allowed_buy_qty = risk.position_size(price=price)
+        
+        if signal == "SELL" and qty <= 0.0001:
+            print(f"          ⏭️ {symbol}: Signal is SELL, but None Owned (Shorting aborted).")
+            continue
+            
+        if signal != "HOLD":
+            trade_qty = allowed_buy_qty
+            
+            # If it's a SELL, we dump everything we own.
+            if signal == "SELL":
+                trade_qty = qty
+            # if it's a BUY, but NOT the top asset, suppress it!
+            elif symbol != top_asset["symbol"]:
+                print(f"          ⏭️ {symbol}: Signal is {signal}, but suppressing to concentrate capital into {top_asset['symbol']}")
+                continue
+                
+            if trade_qty > 0.0001:
+                print(f"          💸 Executing {signal} for `{trade_qty}` {symbol} at est. ${price:.2f}")
+                executor.place_order(symbol=symbol, signal=signal, qty=trade_qty)
+            else:
+                print(f"          ⏭️ {symbol}: Risk limit is $0 or too little capital.")
         else:
-            reason = "Signal is HOLD." if final_signal == "HOLD" else "Risk Manager permitted no shares."
-            print(f"[Pipeline] ⏭️ Skipping {symbol}: {reason}")
+            print(f"          ⏭️ {symbol}: Signal is HOLD.")
             
     print("\n[Pipeline] ✅ Complete.")
 
